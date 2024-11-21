@@ -1,0 +1,20 @@
+﻿@model CrudForCategory.Models.CategoryMaster
+
+<h1>Category Details</h1>
+<p>ID: @Model.Id</p>
+<p>Category Name: @Model.CategoryName</p>
+<h3>Products</h3>
+@if (Model.ProductMasters != null && Model.ProductMasters.Any())
+{
+    <ul>
+        @foreach (var product in Model.ProductMasters)
+        {
+            <li>@product.ProductName</li>
+        }
+    </ul>
+}
+else
+{
+    <p>No Products Available</p>
+}
+<a asp-action="Index" class="btn btn-primary">Back to List</a>

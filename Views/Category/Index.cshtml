@@ -1,0 +1,50 @@
+﻿@model IEnumerable<CrudForCategory.Models.CategoryMaster>
+
+@{
+    ViewData["Title"] = "Categories";
+}
+
+<h1>Categories</h1>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Category Name</th>
+            <th>Products</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var category in Model)
+        {
+            <tr>
+                <td>@category.Id</td>
+                <td>@category.CategoryName</td>
+                <td>
+                    @if (category.ProductMasters != null && category.ProductMasters.Any())
+                    {
+                        <ul>
+                            @foreach (var product in category.ProductMasters)
+                            {
+                                <li>@product.ProductName</li> 
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <span>No Products</span>
+                    }
+                </td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@category.Id" class="btn btn-primary">Edit</a>
+                    <a asp-action="Details" asp-route-id="@category.Id" class="btn btn-info">Details</a>
+                    <a asp-action="Delete" asp-route-id="@category.Id" class="btn btn-danger">Delete</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+<div>
+    <a asp-action="Create" class="btn btn-success">Add New Category</a>
+</div>
