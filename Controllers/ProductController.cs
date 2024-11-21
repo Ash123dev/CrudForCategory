@@ -28,5 +28,118 @@ namespace CrudForCategory.Controllers
 
             return View(products);
         }
+
+        
+        public IActionResult Details(int id)
+        {
+            var product = _context.ProductMasters
+                .Include(p => p.Category)  
+                .FirstOrDefault(p => p.Id == id);  
+
+            if (product == null)
+            {
+                return NotFound();  
+            }
+
+            return View(product);  
+        }
+
+
+
+        public IActionResult Create()
+        {
+            ViewBag.Categories = _context.CategoryMasters.ToList();
+            return View();
+        }
+
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(ProductMaster model)
+        {
+
+            _context.ProductMasters.Add(model);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Product created successfully!";
+            return RedirectToAction(nameof(Index));
+
+        }
+
+
+        public IActionResult Edit(int id)
+        {
+            var product = _context.ProductMasters.Include(p => p.Category)
+                                                 .FirstOrDefault(p => p.Id == id);
+
+            if (product == null)
+            {
+                return NotFound();
+            }
+
+            ViewBag.Categories = _context.CategoryMasters.ToList();
+            return View(product);
+        }
+
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(int id, ProductMaster product)
+        {
+            if (id != product.Id)
+            {
+                return NotFound();
+            }
+
+            try
+            {
+                _context.Update(product);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Product updated successfully!";
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!_context.ProductMasters.Any(p => p.Id == product.Id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+            return RedirectToAction(nameof(Index));
+        }
+
+        
+        public IActionResult Delete(int id)
+        {
+            var product = _context.ProductMasters.Include(p => p.Category)
+                                                 .FirstOrDefault(p => p.Id == id);
+
+            if (product == null)
+            {
+                return NotFound();
+            }
+
+            return View(product);
+        }
+
+        
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(int id)
+        {
+            var product = await _context.ProductMasters.FindAsync(id);
+            if (product != null)
+            {
+                _context.ProductMasters.Remove(product);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Product deleted successfully!";
+            }
+            return RedirectToAction(nameof(Index));
+        }
+
+
     }
 }

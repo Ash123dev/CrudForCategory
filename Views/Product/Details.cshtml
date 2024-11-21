@@ -1,0 +1,24 @@
+﻿@model CrudForCategory.Models.ProductMaster
+
+@{
+    ViewData["Title"] = "Product Details";
+}
+
+<h2>Product Details</h2>
+
+<div class="form-group">
+    <label>Product Name</label>
+    <p>@Model.ProductName</p>  
+</div>
+
+<div class="form-group">
+    <label>Category Name</label>
+    <p>@Model.Category.CategoryName</p>  
+</div>
+
+<div class="form-group">
+    <label>Category ID</label>
+    <p>@Model.CategoryId</p>  
+</div>
+
+<a asp-action="Index" class="btn btn-secondary">Back to List</a>  
