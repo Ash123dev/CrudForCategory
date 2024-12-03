@@ -1,4 +1,5 @@
-﻿using CrudForCategory.Data;
+﻿using CrudForCategory.BL;
+using CrudForCategory.Data;
 using CrudForCategory.Models;
 using CrudForCategory.Request;
 using Microsoft.AspNetCore.Mvc;
@@ -6,140 +7,157 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CrudForCategory.Controllers
 {
-    public class ProductController : Controller
-    {
-        private readonly AppDbContext _context;
-        public ProductController(AppDbContext appDbContext)
-        {
-            _context = appDbContext;
-        }
-        public async Task<IActionResult> Index(int page = 1, int pageSize = 10)
-        {
-            var totalProducts = await _context.ProductMasters.CountAsync();
+	public class ProductController : Controller
+	{
+		private readonly IProductBL _context;
+		private readonly ICategoryBL _categoryBL;
+		public ProductController(IProductBL product, ICategoryBL categoryBL)
+		{
+			_context = product;
+			_categoryBL = categoryBL;
+		}
+		public async Task<IActionResult> Index(int page = 1, int pageSize = 10)
+		{
+			var (products, totalProducts) = await _context.GetPagedProductsAsync(page, pageSize);
 
-            var products = await _context.ProductMasters.Include(x => x.Category)
-                                                        .OrderBy(x => x.Id)
-                                                        .Skip((page - 1) * pageSize)
-                                                        .Take(pageSize)
-                                                        .ToListAsync();
+			ViewBag.TotalPages = (int)Math.Ceiling((double)totalProducts / pageSize);
+			ViewBag.CurrentPage = page;
 
-            ViewBag.TotalPages = (int)Math.Ceiling((double)totalProducts / pageSize);
-            ViewBag.CurrentPage = page;
-
-            return View(products);
-        }
-
-        
-        public IActionResult Details(int id)
-        {
-            var product = _context.ProductMasters
-                .Include(p => p.Category)  
-                .FirstOrDefault(p => p.Id == id);  
-
-            if (product == null)
-            {
-                return NotFound();  
-            }
-
-            return View(product);  
-        }
+			return View(products);
+		}
 
 
 
-        public IActionResult Create()
-        {
-            ViewBag.Categories = _context.CategoryMasters.ToList();
-            return View();
-        }
+		public IActionResult Details(int id)
+		{
+			var product = _context.Details(id);
+
+			if (product == null)
+			{
+				return NotFound();
+			}
+
+			return View(product);
+		}
 
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(ProductMaster model)
-        {
 
-            _context.ProductMasters.Add(model);
-            await _context.SaveChangesAsync();
+		public IActionResult Create()
+		{
+			var categories = _categoryBL.Index().Result;
+			ViewBag.Categories = categories;
 
-            TempData["SuccessMessage"] = "Product created successfully!";
-            return RedirectToAction(nameof(Index));
-
-        }
+			return View();
+		}
 
 
-        public IActionResult Edit(int id)
-        {
-            var product = _context.ProductMasters.Include(p => p.Category)
-                                                 .FirstOrDefault(p => p.Id == id);
-
-            if (product == null)
-            {
-                return NotFound();
-            }
-
-            ViewBag.Categories = _context.CategoryMasters.ToList();
-            return View(product);
-        }
 
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, ProductMaster product)
-        {
-            if (id != product.Id)
-            {
-                return NotFound();
-            }
+		[HttpPost]
+		[ValidateAntiForgeryToken]
+		public async Task<IActionResult> Create(ProductMaster model)
+		{
 
-            try
-            {
-                _context.Update(product);
-                await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = "Product updated successfully!";
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!_context.ProductMasters.Any(p => p.Id == product.Id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-            return RedirectToAction(nameof(Index));
-        }
+			var success = await _context.CreateProductAsync(model);
 
-        
-        public IActionResult Delete(int id)
-        {
-            var product = _context.ProductMasters.Include(p => p.Category)
-                                                 .FirstOrDefault(p => p.Id == id);
-
-            if (product == null)
-            {
-                return NotFound();
-            }
-
-            return View(product);
-        }
-
-        
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(int id)
-        {
-            var product = await _context.ProductMasters.FindAsync(id);
-            if (product != null)
-            {
-                _context.ProductMasters.Remove(product);
-                await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = "Product deleted successfully!";
-            }
-            return RedirectToAction(nameof(Index));
-        }
+			if (success)
+			{
+				TempData["SuccessMessage"] = "Product created successfully!";
+				return RedirectToAction(nameof(Index));
+			}
+			else
+			{
+				TempData["ErrorMessage"] = "An error occurred while creating the product.";
+				return View(model);
+			}
 
 
-    }
+			var categories = _categoryBL.Index().Result;
+			ViewBag.Categories = categories;
+			return View(model);
+		}
+
+
+
+		public IActionResult Edit(int id)
+		{
+			var product = _context.Details(id);
+
+			if (product == null)
+			{
+				return NotFound();
+			}
+
+			ViewBag.Categories = _categoryBL.Index().Result;
+			return View(product);
+		}
+
+
+		[HttpPost]
+		[ValidateAntiForgeryToken]
+		public async Task<IActionResult> Edit(int id, ProductMaster product)
+		{
+			if (id != product.Id)
+			{
+				return NotFound();
+			}
+
+			//if (ModelState.IsValid)
+			//{
+			var success = await _context.EditProductAsync(product);
+
+			if (success)
+			{
+				TempData["SuccessMessage"] = "Product updated successfully!";
+				return RedirectToAction(nameof(Index));
+			}
+			else
+			{
+				TempData["ErrorMessage"] = "An error occurred while updating the product.";
+				return View(product);
+			}
+			//}
+
+			var categories = _categoryBL.Index().Result;
+			ViewBag.Categories = categories;
+
+			return View(product);
+		}
+
+
+
+		public IActionResult Delete(int id)
+		{
+			var product = _context.Details(id);
+
+			if (product == null)
+			{
+				return NotFound();
+			}
+
+			return View(product);
+		}
+
+
+		[HttpPost, ActionName("Delete")]
+		[ValidateAntiForgeryToken]
+		public async Task<IActionResult> DeleteConfirmed(int id)
+		{
+			var success = await _context.DeleteProductAsync(id);
+
+			if (success)
+			{
+				TempData["SuccessMessage"] = "Product deleted successfully!";
+			}
+			else
+			{
+				TempData["ErrorMessage"] = "Product not found, deletion failed.";
+			}
+
+			return RedirectToAction(nameof(Index)); // Redirect to Index after the operation
+		}
+
+
+
+	}
 }

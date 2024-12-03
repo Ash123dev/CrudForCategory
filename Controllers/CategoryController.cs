@@ -1,4 +1,5 @@
-﻿using CrudForCategory.Data;
+﻿using CrudForCategory.BL;
+using CrudForCategory.Data;
 using CrudForCategory.Models;
 using CrudForCategory.Request;
 using Microsoft.AspNetCore.Mvc;
@@ -6,167 +7,100 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CrudForCategory.Controllers
 {
-	public class CategoryController : Controller
-	{
-		private readonly AppDbContext _context;
+    public class CategoryController : Controller
+    {
+        private readonly ICategoryBL _context;
 
-		public CategoryController(AppDbContext context)
-		{
-			_context = context;
-		}
+        public CategoryController(ICategoryBL context)
+        {
+            _context = context;
+        }
 
-		public async Task<IActionResult> Index()
-		{
-			var categories = await _context.CategoryMasters
-										   .Include(c => c.ProductMasters)
-										   .ToListAsync();
-			return View(categories);
-		}
+        public async Task<IActionResult> Index()
+        {
+            var categories = await _context.Index();
+            return View(categories);
+        }
 
-		public async Task<IActionResult> Details(int? id)
-		{
-			if (id == null) return NotFound();
+        public async Task<IActionResult> Details(int? id)
+        {
+            if (id == null) return NotFound();
 
-			var category = await _context.CategoryMasters
-										 .Include(c => c.ProductMasters)
-										 .FirstOrDefaultAsync(m => m.Id == id);
-			if (category == null) return NotFound();
+            var category = await _context.Details(id);
 
-			return View(category);
-		}
+            if (category == null) return NotFound();
 
-		public IActionResult Create()
-		{
-			var model = new CategoryViewRequest();
-			return View(model);
-		}
+            return View(category);
+        }
 
-		[HttpPost]
-		[ValidateAntiForgeryToken]
-		public async Task<IActionResult> Create(CategoryViewRequest model)
-		{
-			if (ModelState.IsValid)
-			{
-				var category = new CategoryMaster
-				{
-					CategoryName = model.CategoryName,
-					ProductMasters = model.ProductNames
-						.Where(name => !string.IsNullOrWhiteSpace(name.ToString()))
-						.Select(name => new ProductMaster { ProductName = name.ToString() })
-						.ToList()
-				};
+        public IActionResult Create()
+        {
+            var model = new CategoryViewRequest();
+            return View(model);
+        }
 
-				_context.CategoryMasters.Add(category);
-				await _context.SaveChangesAsync();
-				return RedirectToAction(nameof(Index));
-			}
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(CategoryViewRequest model)
+        {
+            if (ModelState.IsValid)
+            {
+                var category = _context.Create(model);
+                return RedirectToAction(nameof(Index));
+            }
 
-			return View(model);
-		}
+            return View(model);
+        }
 
 
-		public async Task<IActionResult> Edit(int id)
-		{
-			var category = await _context.CategoryMasters
-				.Include(c => c.ProductMasters)
-				.FirstOrDefaultAsync(c => c.Id == id);
+        public async Task<IActionResult> Edit(int id)
+        {
+            var category = await _context.Details(id);
 
-			if (category == null)
-				return NotFound();
+            if (category == null)
+                return NotFound();
 
-			var model = new CategoryUpadateViewResult
-			{
-				Id = category.Id,
-				CategoryName = category.CategoryName,
-				ProductNames = category.ProductMasters.Select(p => new ProductUpdateViewRequest
-				{
-					Id = p.Id,
-					ProductName = p.ProductName
-				}).ToList()
-			};
+            var model = _context.Edit(category);
 
-			return View(model);
-		}
+            return View(model);
+        }
 
-		[HttpPost]
-		[ValidateAntiForgeryToken]
-		public async Task<IActionResult> Edit(CategoryUpadateViewResult model)
-		{
-			if (!ModelState.IsValid)
-				return View(model);
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(CategoryUpadateViewResult model)
+        {
+            if (!ModelState.IsValid)
+                return View(model);
 
-			var existingCategory = await _context.CategoryMasters
-				.Include(c => c.ProductMasters)
-				.FirstOrDefaultAsync(c => c.Id == model.Id);
+            var existingCategory = await _context.Details(model.Id);
 
-			if (existingCategory == null)
-				throw new Exception("Category not found");
+            if (existingCategory == null)
+                throw new Exception("Category not found");
 
-		
-			existingCategory.CategoryName = model.CategoryName;
 
-		
-			var existingProductIds = existingCategory.ProductMasters.Select(p => p.Id).ToList();
-			var updatedProductIds = model.ProductNames.Select(p => p.Id).ToList();
+            existingCategory.CategoryName = model.CategoryName;
 
-		
-			var productsToRemove = existingCategory.ProductMasters
-				.Where(p => !updatedProductIds.Contains(p.Id))
-				.ToList();
+            await _context.Edit(existingCategory, model);
 
-			_context.ProductMasters.RemoveRange(productsToRemove);
+            return RedirectToAction(nameof(Index));
+        }
 
-		
-			foreach (var product in model.ProductNames)
-			{
-				if (product.Id == 0)
-				{
-				
-					existingCategory.ProductMasters.Add(new ProductMaster
-					{
-						ProductName = product.ProductName,
-						CategoryId = existingCategory.Id
-					});
-				}
-				else
-				{
-				
-					var existingProduct = existingCategory.ProductMasters.FirstOrDefault(p => p.Id == product.Id);
-					if (existingProduct != null)
-					{
-						existingProduct.ProductName = product.ProductName;
-					}
-				}
-			}
+        public async Task<IActionResult> Delete(int? id)
+        {
+            if (id == null) return NotFound();
 
-		
-			await _context.SaveChangesAsync();
+            var category = await _context.Details(id);
+            if (category == null) return NotFound();
 
-			return RedirectToAction(nameof(Index));
-		}
+            return View(category);
+        }
 
-		public async Task<IActionResult> Delete(int? id)
-		{
-			if (id == null) return NotFound();
-
-			var category = await _context.CategoryMasters
-										 .FirstOrDefaultAsync(m => m.Id == id);
-			if (category == null) return NotFound();
-
-			return View(category);
-		}
-
-		[HttpPost, ActionName("Delete")]
-		[ValidateAntiForgeryToken]
-		public async Task<IActionResult> DeleteConfirmed(int id)
-		{
-			var category = await _context.CategoryMasters.FindAsync(id);
-			if (category != null)
-			{
-				_context.CategoryMasters.Remove(category);
-				await _context.SaveChangesAsync();
-			}
-			return RedirectToAction(nameof(Index));
-		}
-	}
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(int id)
+        {
+            var category = await _context.DeleteCategoryAsync(id);
+            return RedirectToAction(nameof(Index));
+        }
+    }
 }
